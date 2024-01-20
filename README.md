@@ -2,4 +2,6 @@
  Deep Star </h1>
 <h3>🚧 <b><i>UNDER CONSTRUCTION</i></b> 🚧</h3>
 
-Deep Learning framework designed to aid ML students in their understanding of Deep Learning concepts at a fundamental level.
+___Deep Learning framework designed to aid ML students in their understanding of Deep Learning concepts at a fundamental level.___
+
+<img src="https://github.com/noahgsolomon/DeepStar/assets/111200060/3ddb5899-57f1-406a-9966-9b75275d36f6" alt="deep star in arctic" />
