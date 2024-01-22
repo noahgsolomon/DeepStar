@@ -13,14 +13,13 @@ class Module:
 
 class Neuron(Module):
 
-    def __init__(self, nin, nonlinear=True):
+    def __init__(self, nin):
         self.w = [Value(random.uniform(-1, 1)*0.01) for _ in range(nin)]
         self.b = Value(0)
-        self.nonlinear = nonlinear
 
     def __call__(self, x):
         out = sum(w * x_ for w, x_ in zip(self.w, x)) + self.b
-        return out.tanh() if self.nonlinear else out
+        return out
     
     def parameters(self):
         return self.w + [self.b]
@@ -39,7 +38,7 @@ class Model(Module):
         return res[0] if len(res) == 1 else res
     
     def parameters(self):
-        return np.array([p for layer in self.layers for p in layer.parameters()])
+        return np.array ([p for layer in self.layers for p in layer.parameters()])
     
     def parameters_val(self):
         return np.array([p.data for layer in self.layers for p in layer.parameters()])
@@ -56,12 +55,15 @@ class Embedding(Module):
     def parameters(self):
         return self.embeddings.flatten()
     
+    def __repr__(self) -> str:
+        return f'Embedding(num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim})'
+    
 class Linear(Module):
-    def __init__(self, nin, nout, **kwargs):
+    def __init__(self, nin, nout, activation='', **kwargs):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)] 
-
+        self.activation = activation.upper()
     def __call__(self, x):
-        out = [neuron(x) for neuron in self.neurons]  # This remains a list comprehension
+        out = [neuron(x).tanh() if self.activation == 'TANH' else neuron(x).relu() if self.activation == 'RELU' else neuron(x) for neuron in self.neurons]
         return out if len(out) > 1 else out[0]
     
     def parameters(self):
