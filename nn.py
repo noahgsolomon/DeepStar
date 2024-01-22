@@ -26,17 +26,14 @@ class Neuron(Module):
         return self.w + [self.b]
 
 class Model(Module):
-    def __init__(self, layers, batch_size=1):
-        self.batch_size = batch_size
+    def __init__(self, layers):
         self.layers = layers
 
-    def __call__(self, xOG):
-        if len(xOG) != self.batch_size:
-            raise Exception(f'input of size: {len(xOG)} does not match batch size of {self.batch_size}')
+    def __call__(self, ix):
         res = []
-        for i in range(self.batch_size):
-            x = [xOG[i]]
-            for j, layer in enumerate(self.layers):
+        for ixVal in ix:
+            x = [ixVal]
+            for layer in self.layers:
                 x = layer(x)
             res.append(x)
         return res[0] if len(res) == 1 else res
