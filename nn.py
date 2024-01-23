@@ -12,11 +12,15 @@ class Module:
         return np.array([])
 
 class Neuron(Module):
-
     def __init__(self, nin, name=''):
         self.w = [Value(random.uniform(-1, 1)*0.01, name=f'{name}:w{i}') for i in range(nin)]
         self.b = Value(0, name=f'{name}:b')
         self.name = name
+
+    def update_name(self, name):
+        for i, value in enumerate(self.w):
+            value.update_name(f'{name}:w{i}')
+        self.b.update_name(f'{name}:b')
 
     def __call__(self, x):
         out = sum(w * x_ for w, x_ in zip(self.w, x)) + self.b
@@ -27,6 +31,9 @@ class Neuron(Module):
 
 class Model(Module):
     def __init__(self, layers):
+        for i, layer in enumerate(layers):
+            layer.name = i
+            layer.update_neuron_names()
         self.layers = layers
 
     def __call__(self, ix):
@@ -49,10 +56,14 @@ class Model(Module):
 
 class Embedding(Module):
     def __init__(self, num_embeddings, embedding_dim, name=''):
-        self.embeddings = np.array([Value(random.uniform(-1, 1), name=f'L{name}:n{i}') for i in range(embedding_dim * num_embeddings)]).reshape((num_embeddings, embedding_dim))
+        self.embeddings = np.array([Value(random.uniform(-1, 1), name=f'Emb({name}):n{i}') for i in range(embedding_dim * num_embeddings)]).reshape((num_embeddings, embedding_dim))
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.name = name
+
+    def update_neuron_names(self):
+        for i, embedding in enumerate(self.embeddings[0]):
+            embedding.update_name(f'L{self.name}:n{i}')
 
     def __call__(self, indices):
         return self.embeddings[np.array(indices, dtype=int)].flatten()
@@ -69,6 +80,10 @@ class Linear(Module):
         self.activation = activation.upper()
         self.name = name
 
+    def update_neuron_names(self):
+        for i, neuron in enumerate(self.neurons):
+            neuron.update_name(f'L{self.name}:n{i}')
+
     def __call__(self, x):
         out = [neuron(x).tanh() if self.activation == 'TANH' else neuron(x).relu() if self.activation == 'RELU' else neuron(x) for neuron in self.neurons]
         return out if len(out) > 1 else out[0]
@@ -78,3 +93,6 @@ class Linear(Module):
     
     def __repr__(self):
         return f'Linear({len(self.neurons)} neurons, activation={self.activation})'
+    
+
+# TODO: make a layer abstract class which Linear and Embedding extending it

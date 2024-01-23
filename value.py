@@ -139,3 +139,6 @@ class Value:
         loss = prob[actual].log()*-1
 
         return loss
+
+    def update_name(self, name):
+        self.name = name
