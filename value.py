@@ -1,12 +1,13 @@
 import math
 
 class Value:
-    def __init__(self, data=1, children=[], _backward=lambda: None, _op=''):
+    def __init__(self, data=1, children=[], _backward=lambda: None, _op='', name=''):
         self.data = data
         self.children = children
         self._backward = _backward
         self.grad = 0
         self._op = _op
+        self.name = name
     
     def log(self):
         def _backward():
@@ -79,7 +80,7 @@ class Value:
         return out
     
     def __repr__(self):
-        return f'data: {self.data}, grad: {self.grad}, op: {self._op}'
+        return f'name: {self.name} data: {self.data}, grad: {self.grad}, op: {self._op}'
     
     def backward(self):
         topo = []
@@ -129,12 +130,12 @@ class Value:
     def cross_entropy(logits, actual):
         maxVal = max([num.data for num in logits])
 
-        exp = [(2**(num-maxVal)) for num in logits]
+        exp = [(math.e**(num-maxVal)) for num in logits]
 
-        count = sum([num.data for num in exp])
+        count = sum([num for num in exp])
 
         prob = [val/count for val in exp]
 
-        loss = prob[int(actual)].log()*-1
+        loss = prob[actual].log()*-1
 
         return loss

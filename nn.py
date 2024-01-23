@@ -13,9 +13,10 @@ class Module:
 
 class Neuron(Module):
 
-    def __init__(self, nin):
-        self.w = [Value(random.uniform(-1, 1)*0.01) for _ in range(nin)]
-        self.b = Value(0)
+    def __init__(self, nin, name=''):
+        self.w = [Value(random.uniform(-1, 1)*0.01, name=f'{name}:w{i}') for i in range(nin)]
+        self.b = Value(0, name=f'{name}:b')
+        self.name = name
 
     def __call__(self, x):
         out = sum(w * x_ for w, x_ in zip(self.w, x)) + self.b
@@ -42,12 +43,16 @@ class Model(Module):
     
     def parameters_val(self):
         return np.array([p.data for layer in self.layers for p in layer.parameters()])
+    
+    def __repr__(self):
+        return f'Model({len(self.layers)} layers): ' + ' -> '.join([str(layer) for layer in self.layers])
 
 class Embedding(Module):
-    def __init__(self, num_embeddings, embedding_dim):
-        self.embeddings = np.array([Value(random.uniform(-1, 1)) for _ in range(embedding_dim * num_embeddings)]).reshape((num_embeddings, embedding_dim))
+    def __init__(self, num_embeddings, embedding_dim, name=''):
+        self.embeddings = np.array([Value(random.uniform(-1, 1), name=f'L{name}:n{i}') for i in range(embedding_dim * num_embeddings)]).reshape((num_embeddings, embedding_dim))
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
+        self.name = name
 
     def __call__(self, indices):
         return self.embeddings[np.array(indices, dtype=int)].flatten()
@@ -59,12 +64,17 @@ class Embedding(Module):
         return f'Embedding(num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim})'
     
 class Linear(Module):
-    def __init__(self, nin, nout, activation='', **kwargs):
-        self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)] 
+    def __init__(self, nin, nout, activation='', name='', **kwargs):
+        self.neurons = [Neuron(nin, name=f'L{name}:n{i}',**kwargs) for i in range(nout)] 
         self.activation = activation.upper()
+        self.name = name
+
     def __call__(self, x):
         out = [neuron(x).tanh() if self.activation == 'TANH' else neuron(x).relu() if self.activation == 'RELU' else neuron(x) for neuron in self.neurons]
         return out if len(out) > 1 else out[0]
     
     def parameters(self):
         return np.array([p for neuron in self.neurons for p in neuron.parameters()])
+    
+    def __repr__(self):
+        return f'Linear({len(self.neurons)} neurons, activation={self.activation})'
