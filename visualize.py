@@ -18,8 +18,9 @@ def draw_dot(root):
   nodes, edges = trace(root)
   for n in nodes:
     uid = str(id(n))
+    print(n)
     # for any value in the graph, create a rectangular ('record') node for it
-    dot.node(name = uid, label = "{ data %.4f | grad %.4f }" % (n.data, n.grad), shape='record')
+    dot.node(name=uid, label=f"{{ data {n.data:.4f} | name {n.name} | grad {n.grad:.4f} }}", shape='record')
     if n._op:
       # if this value is a result of some operation, create an op node for it
       dot.node(name = uid + n._op, label = n._op)
