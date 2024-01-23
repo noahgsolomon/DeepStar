@@ -27,7 +27,7 @@ class Value:
         return out
     
     def relu(self):
-        out = Value(0.1*self.data if self.data < 0 else self.data, children=[self], _op='relu')
+        out = Value(0.1*self.data if self.data < 0 else self.data, children=[self], _op='Relu')
 
         def _backward():
             self.grad += (1 if out.data > 0 else 0.1) * out.grad
@@ -38,7 +38,7 @@ class Value:
     def tanh(self):
         def _backward():
             self.grad += (1 - pow(out.data, 2)) * out.grad
-        out = Value(math.tanh(self.data), children=[self], _backward=_backward, _op='tanh')
+        out = Value(math.tanh(self.data), children=[self], _backward=_backward, _op='Tanh')
         return out
     
     def sigmoid(self):
