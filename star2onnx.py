@@ -1,6 +1,6 @@
 import numpy as np
 from nn import Embedding
-from export_to_onnx import TensorProto
+from onnx import TensorProto
 from onnx.helper import make_model, make_node, make_graph, make_tensor_value_info, make_tensor
 
 
@@ -21,7 +21,11 @@ def export_to_onnx(input_dim, output_dim, model, name='model'):
             Y_name = f'X{i+1}'
             Y_gather_name = f'Gather{Y_name}'
 
-            nodes.append(make_node('Gather', [f'Embedding{i+1}', X_name], [Y_gather_name]))
+            cast_node_name = f'CastToINT64_{i}'
+            nodes.append(make_node('Cast', [X_name], [cast_node_name], to=TensorProto.INT64))
+
+            # Update Gather input to use the casted indices
+            nodes.append(make_node('Gather', [f'Embedding{i+1}', cast_node_name], [Y_gather_name]))
 
             nodes.append(make_node('Flatten', [Y_gather_name], [Y_name]))
 
@@ -52,9 +56,6 @@ def export_to_onnx(input_dim, output_dim, model, name='model'):
     nodes[-1].output[0] = 'Y'
 
     graph = make_graph(nodes, name, [X], [Y], tensors)
-    onnx_model = make_model(graph, producer_name='onnx-example')
+    onnx_model = make_model(graph, producer_name='star-model')
 
     return onnx_model
-
-def import_from_onnx(onnx_model):
-     pass
