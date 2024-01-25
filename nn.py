@@ -39,9 +39,12 @@ class Model(Module):
             layer.update_neuron_names()
         self.layers = layers
         self.shape = [layer.dims for layer in layers]
-        for layer in layers:
+        for i, layer in enumerate(layers):
             if isinstance(layer, Linear):
                 self.input_shape = layer.nin
+                break
+            elif isinstance(layer, Embedding):
+                self.input_shape = int(self.layers[i+1].nin/layer.embedding_dim)
                 break
         self.output_shape = self.shape[-1][1]
 
