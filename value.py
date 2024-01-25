@@ -1,8 +1,9 @@
 import math
+import numpy as np
 
 class Value:
     def __init__(self, data=1, children=[], _backward=lambda: None, _op='', name=''):
-        self.data = data
+        self.data = np.float32(data)
         self.children = children
         self._backward = _backward
         self.grad = 0
@@ -27,12 +28,11 @@ class Value:
         return out
     
     def relu(self):
-        out = Value(0.1*self.data if self.data < 0 else self.data, children=[self], _op='Relu')
+        out = Value(0*self.data if self.data < 0 else self.data, children=[self], _op='Relu')
 
         def _backward():
-            self.grad += (1 if out.data > 0 else 0.1) * out.grad
+            self.grad += (1 if out.data > 0 else 0) * out.grad
         out._backward = _backward
-
         return out
 
     def tanh(self):
