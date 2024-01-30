@@ -7,7 +7,7 @@ class Module:
     def zero_grad(self):
         for p in self.parameters():
             p.grad = 0
-    
+
     def parameters(self):
         return np.array([])
 
@@ -25,10 +25,10 @@ class Neuron(Module):
     def __call__(self, x):
         out = sum(w * x_ for w, x_ in zip(self.w, x)) + self.b
         return out
-    
+
     def parameters(self):
         return self.w + [self.b]
-    
+
     def __repr__(self):
         return f'Neuron({len(self.w)})'
 
@@ -56,13 +56,13 @@ class Model(Module):
                 x = layer(x)
             res.append(x)
         return res[0] if len(res) == 1 else res
-    
+
     def parameters(self):
         return np.array ([p for layer in self.layers for p in layer.parameters()])
-    
+
     def parameters_val(self):
         return np.array([p.data for layer in self.layers for p in layer.parameters()])
-    
+
     def __repr__(self):
         return f'Model({len(self.layers)} layers): ' + ' -> '.join([str(layer) for layer in self.layers])
 
@@ -83,13 +83,13 @@ class Embedding(Module):
 
     def parameters(self):
         return self.embeddings.flatten()
-    
+
     def __repr__(self) -> str:
         return f'Embedding(num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim})'
-    
+
 class Linear(Module):
-    def __init__(self, nin, nout, activation='', name='', **kwargs):
-        self.neurons = [Neuron(nin, name=f'L{name}:n{i}',**kwargs) for i in range(nout)] 
+    def __init__(self, nin, nout, activation='', name='', bn=False, **kwargs):
+        self.neurons = [Neuron(nin, name=f'L{name}:n{i}',**kwargs) for i in range(nout)]
         self.activation = activation
         self.name = name
         self.nin = nin
@@ -103,12 +103,48 @@ class Linear(Module):
     def __call__(self, x):
         out = [neuron(x).tanh() if self.activation == 'Tanh' else neuron(x).relu() if self.activation == 'Relu' else neuron(x) for neuron in self.neurons]
         return out if len(out) > 1 else out[0]
-    
+
     def parameters(self):
         return np.array([p for neuron in self.neurons for p in neuron.parameters()])
-    
+
     def __repr__(self):
         return f'Linear(({self.nin}, {self.nout}) -> {self.activation})'
-    
+
+class BatchNorm(Module):
+    def __init__(self, nin, momentum=0.1, name=''):
+        super().__init__()
+        self.gamma = Value(1, name=f'BN{name}:gamma')
+        self.beta = Value(0, name=f'BN{name}:beta')
+        self.running_mean = np.zeros(nin)
+        self.running_var = np.ones(nin)
+        self.momentum = momentum
+        self.training = True
+        self.nin = nin
+        self.name = name
+        self.dims = (nin, 1)
+
+    def __call__(self, x):
+        if self.training:
+            batch_mean = np.mean(x, axis=0)
+            batch_var = np.var(x, axis=0)
+            self.running_mean = self.momentum * batch_mean + (1 - self.momentum) * self.running_mean
+            self.running_var = self.momentum * batch_var + (1 - self.momentum) * self.running_var
+            x_normalized = (x - batch_mean) / np.sqrt(batch_var + 1e-10)
+        else:
+            x_normalized = (x - self.running_mean) / np.sqrt(self.running_var + 1e-10)
+        
+        out = self.gamma * x_normalized + self.beta
+        return out
+
+    def parameters(self):
+        return np.array([self.gamma, self.beta])
+
+    def set_training(self, training):
+        self.training = training
+
+    def __repr__(self):
+        return f'BatchNorm({self.nin})'
+
+
 
 # TODO: make a layer abstract class which Linear and Embedding extending it
