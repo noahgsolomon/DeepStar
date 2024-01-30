@@ -1,7 +1,7 @@
 import numpy as np
 from nn import Embedding
-from onnx import TensorProto
-from onnx.helper import make_model, make_node, make_graph, make_tensor_value_info, make_tensor
+from onnx import TensorProto # type: ignore
+from onnx.helper import make_model, make_node, make_graph, make_tensor_value_info, make_tensor # type: ignore
 
 
 def export_to_onnx(input_dim, output_dim, model, name='model'):
@@ -10,7 +10,7 @@ def export_to_onnx(input_dim, output_dim, model, name='model'):
 
     nodes = []
     tensors = []
-    
+
     for i, layer in enumerate(model.layers):
         if isinstance(layer, Embedding):
             embedding_values = [emb.data for emb in layer.embeddings.flatten()]
@@ -49,7 +49,7 @@ def export_to_onnx(input_dim, output_dim, model, name='model'):
 
             nodes.append(make_node('MatMul', [X_name, W.name], [f'{X_name}W']))
             nodes.append(make_node('Add', [f'{X_name}W', B.name], [f'{X_name}WB' if layer.activation else Y_name]))
-        
+
             if layer.activation:
                 nodes.append(make_node(layer.activation, [f'{X_name}WB'], [Y_name]))
 

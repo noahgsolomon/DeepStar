@@ -27,7 +27,7 @@ class Neuron(Module):
         return out
 
     def parameters(self):
-        return self.w + [self.b]
+        return self.w + np.array([self.b])
 
     def __repr__(self):
         return f'Neuron({len(self.w)})'
@@ -64,7 +64,7 @@ class Model(Module):
                     x = layer(x)  # Apply the layer to the current input
             res.append(x)
         return res
-    
+
     def forward_batch(self, batch_inputs, layer_num):
         batch_outputs = []
         for x in batch_inputs:
@@ -122,6 +122,7 @@ class Linear(Module):
         self.nin = nin
         self.nout = nout
         self.dims = (nin, nout)
+        self.bn = bn
 
     def update_neuron_names(self):
         for i, neuron in enumerate(self.neurons):
@@ -158,11 +159,11 @@ class BatchNorm(Module):
             # Compute mean and variance from the current batch
             batch_mean = np.mean(x, axis=0)
             batch_var = np.var(x, axis=0)
-            
+
             # Update running mean and variance
             self.running_mean = self.momentum * batch_mean + (1 - self.momentum) * self.running_mean
             self.running_var = self.momentum * batch_var + (1 - self.momentum) * self.running_var
-            
+
             # Normalize using batch statistics
             x_normalized = (x - batch_mean) / np.sqrt(batch_var + 1e-10)
         else:
