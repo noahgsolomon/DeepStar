@@ -33,7 +33,7 @@ class Neuron(Module):
         return f'Neuron({len(self.w)})'
 
 class Model(Module):
-    def __init__(self, layers):
+    def __init__(self, layers, batch_size=1):
         for i, layer in enumerate(layers):
             layer.name = i
             layer.update_neuron_names()
@@ -47,15 +47,42 @@ class Model(Module):
                 self.input_shape = int(self.layers[i+1].nin/layer.embedding_dim)
                 break
         self.output_shape = self.shape[-1][1]
+        self.batch_size = batch_size
+
+        self.layer_outs = [np.zeros((batch_size, layer.dims[1])) for layer in self.layers]
 
     def __call__(self, ix):
         res = []
-        for ixVal in ix:
+        for i, ixVal in enumerate(ix):
             x = [ixVal]
-            for layer in self.layers:
-                x = layer(x)
+            for k, layer in enumerate(self.layers):
+                if isinstance(layer, Linear) and layer.bn:
+                    if i == 0:  # Only compute the batch normalization once for the entire batch
+                        self.forward_batch(ix, k)
+                    x = self.layer_outs[k][i]  # Retrieve the normalized output for the current input
+                else:
+                    x = layer(x)  # Apply the layer to the current input
             res.append(x)
-        return res[0] if len(res) == 1 else res
+        return res
+    
+    def forward_batch(self, batch_inputs, layer_num):
+        batch_outputs = []
+        for x in batch_inputs:
+            for layer in self.layers[:layer_num]:
+                x = layer(x)
+            batch_outputs.append(x)
+
+        # Convert list of outputs to NumPy array for vectorized operations
+        batch_outputs = np.array(batch_outputs) # Shape: (batch_size, nout)
+
+        means = np.mean(batch_outputs, axis=0)
+        vars = np.var(batch_outputs, axis=0)
+
+        normalized_outputs = (batch_outputs - means) / np.sqrt(vars + 1e-10)
+
+        # Store the normalized outputs for this layer
+        self.layer_outs[layer_num][:] = normalized_outputs
+
 
     def parameters(self):
         return np.array ([p for layer in self.layers for p in layer.parameters()])
@@ -110,13 +137,16 @@ class Linear(Module):
     def __repr__(self):
         return f'Linear(({self.nin}, {self.nout}) -> {self.activation})'
 
+
+# TODO: make a layer abstract class which Linear and Embedding extending it
+
 class BatchNorm(Module):
     def __init__(self, nin, momentum=0.1, name=''):
         super().__init__()
         self.gamma = Value(1, name=f'BN{name}:gamma')
         self.beta = Value(0, name=f'BN{name}:beta')
-        self.running_mean = np.zeros(nin)
-        self.running_var = np.ones(nin)
+        self.running_mean = np.zeros(nin)  # Running mean
+        self.running_var = np.ones(nin)    # Running variance
         self.momentum = momentum
         self.training = True
         self.nin = nin
@@ -125,14 +155,21 @@ class BatchNorm(Module):
 
     def __call__(self, x):
         if self.training:
+            # Compute mean and variance from the current batch
             batch_mean = np.mean(x, axis=0)
             batch_var = np.var(x, axis=0)
+            
+            # Update running mean and variance
             self.running_mean = self.momentum * batch_mean + (1 - self.momentum) * self.running_mean
             self.running_var = self.momentum * batch_var + (1 - self.momentum) * self.running_var
+            
+            # Normalize using batch statistics
             x_normalized = (x - batch_mean) / np.sqrt(batch_var + 1e-10)
         else:
+            # Normalize using running statistics during inference
             x_normalized = (x - self.running_mean) / np.sqrt(self.running_var + 1e-10)
-        
+
+        # Scale and shift the normalized values
         out = self.gamma * x_normalized + self.beta
         return out
 
@@ -141,10 +178,3 @@ class BatchNorm(Module):
 
     def set_training(self, training):
         self.training = training
-
-    def __repr__(self):
-        return f'BatchNorm({self.nin})'
-
-
-
-# TODO: make a layer abstract class which Linear and Embedding extending it
