@@ -25,15 +25,15 @@ class Neuron(Module):
     def __call__(self, x):
         out = sum(w * x_ for w, x_ in zip(self.w, x)) + self.b
         return out
-
+    
     def parameters(self):
-        return self.w + np.array([self.b])
-
+        return self.w + [self.b]
+    
     def __repr__(self):
         return f'Neuron({len(self.w)})'
 
 class Model(Module):
-    def __init__(self, layers, batch_size=1):
+    def __init__(self, layers):
         for i, layer in enumerate(layers):
             layer.name = i
             layer.update_neuron_names()
@@ -47,12 +47,12 @@ class Model(Module):
                 self.input_shape = int(self.layers[i+1].nin/layer.embedding_dim)
                 break
         self.output_shape = self.shape[-1][1]
-        self.batch_size = batch_size
 
-        self.layer_outs = [np.zeros((batch_size, layer.dims[1])) for layer in self.layers]
+        self.layer_outs = None
 
     def __call__(self, ix):
         res = []
+        self.layer_outs = [[Value(0) for _ in range(len(ix))] for _ in self.layers]
         for i, ixVal in enumerate(ix):
             x = [ixVal]
             for k, layer in enumerate(self.layers):
@@ -63,25 +63,35 @@ class Model(Module):
                 else:
                     x = layer(x)  # Apply the layer to the current input
             res.append(x)
-        return res
+
+        return res[0] if len(res) == 1 else res
 
     def forward_batch(self, batch_inputs, layer_num):
         batch_outputs = []
-        for x in batch_inputs:
-            for layer in self.layers[:layer_num]:
-                x = layer(x)
+        for i, x in enumerate(batch_inputs):
+            for layer in self.layers[:(layer_num+1)]:
+                try:
+                    x = layer(np.array(x))
+                except Exception as e:
+                    print(f"Error applying layer: {e}")
             batch_outputs.append(x)
 
         # Convert list of outputs to NumPy array for vectorized operations
         batch_outputs = np.array(batch_outputs) # Shape: (batch_size, nout)
 
-        means = np.mean(batch_outputs, axis=0)
-        vars = np.var(batch_outputs, axis=0)
+        means = sum(batch_outputs) / len(batch_outputs)
 
-        normalized_outputs = (batch_outputs - means) / np.sqrt(vars + 1e-10)
+        # Compute the mean of the squares of the batch_outputs
+        mean_of_squares = sum(x**2 for x in batch_outputs) / len(batch_outputs)
+
+        # Compute the variance
+        vars = mean_of_squares + (means**2)*-1
+
+        normalized_outputs = (batch_outputs + means*-1) / (vars**(1/2) + 1e-10)
 
         # Store the normalized outputs for this layer
-        self.layer_outs[layer_num][:] = normalized_outputs
+        for i, output in enumerate(normalized_outputs):
+            self.layer_outs[layer_num][i] = output
 
 
     def parameters(self):
