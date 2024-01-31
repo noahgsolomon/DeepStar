@@ -69,16 +69,19 @@ class Model(Module):
     def forward_batch(self, batch_inputs, layer_num):
         batch_outputs = []
         for i, x in enumerate(batch_inputs):
-            for layer in self.layers[:(layer_num+1)]:
+            for layer in self.layers[: (layer_num+1)]:
                 try:
-                    x = layer(np.array(x))
+                    x = layer([x] if not isinstance(x, list) else x)
                 except Exception as e:
                     print(f"Error applying layer: {e}")
             batch_outputs.append(x)
+        
+        # batch output dims is (batch_size, layer outputs)
 
         # Convert list of outputs to NumPy array for vectorized operations
         batch_outputs = np.array(batch_outputs) # Shape: (batch_size, nout)
 
+        # mean for all nodes in layer outputs, so, dim = 0
         means = sum(batch_outputs) / len(batch_outputs)
 
         # Compute the mean of the squares of the batch_outputs
@@ -92,6 +95,8 @@ class Model(Module):
         # Store the normalized outputs for this layer
         for i, output in enumerate(normalized_outputs):
             self.layer_outs[layer_num][i] = output
+
+        print(self.layer_outs)
 
 
     def parameters(self):
@@ -147,45 +152,3 @@ class Linear(Module):
 
     def __repr__(self):
         return f'Linear(({self.nin}, {self.nout}) -> {self.activation})'
-
-
-# TODO: make a layer abstract class which Linear and Embedding extending it
-
-class BatchNorm(Module):
-    def __init__(self, nin, momentum=0.1, name=''):
-        super().__init__()
-        self.gamma = Value(1, name=f'BN{name}:gamma')
-        self.beta = Value(0, name=f'BN{name}:beta')
-        self.running_mean = np.zeros(nin)  # Running mean
-        self.running_var = np.ones(nin)    # Running variance
-        self.momentum = momentum
-        self.training = True
-        self.nin = nin
-        self.name = name
-        self.dims = (nin, 1)
-
-    def __call__(self, x):
-        if self.training:
-            # Compute mean and variance from the current batch
-            batch_mean = np.mean(x, axis=0)
-            batch_var = np.var(x, axis=0)
-
-            # Update running mean and variance
-            self.running_mean = self.momentum * batch_mean + (1 - self.momentum) * self.running_mean
-            self.running_var = self.momentum * batch_var + (1 - self.momentum) * self.running_var
-
-            # Normalize using batch statistics
-            x_normalized = (x - batch_mean) / np.sqrt(batch_var + 1e-10)
-        else:
-            # Normalize using running statistics during inference
-            x_normalized = (x - self.running_mean) / np.sqrt(self.running_var + 1e-10)
-
-        # Scale and shift the normalized values
-        out = self.gamma * x_normalized + self.beta
-        return out
-
-    def parameters(self):
-        return np.array([self.gamma, self.beta])
-
-    def set_training(self, training):
-        self.training = training
