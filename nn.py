@@ -71,7 +71,7 @@ class Model(Module):
         for i, x in enumerate(batch_inputs):
             for layer in self.layers[: (layer_num+1)]:
                 try:
-                    x = layer([x] if not isinstance(x, list) else x)
+                    x = layer([x] if not isinstance(x, list) and not isinstance(x, np.ndarray) else x)
                 except Exception as e:
                     print(f"Error applying layer: {e}")
             batch_outputs.append(x)
