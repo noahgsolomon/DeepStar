@@ -38,6 +38,7 @@ class Model(Module):
             layer.name = i
             layer.update_neuron_names()
         self.layers = layers
+        self.training = True
         self.shape = [layer.dims for layer in layers]
         for i, layer in enumerate(layers):
             if isinstance(layer, Linear):
@@ -76,26 +77,26 @@ class Model(Module):
                     print(f"Error applying layer: {e}")
             batch_outputs.append(x)
         
-        # batch output dims is (batch_size, layer outputs)
-
-        # Convert list of outputs to NumPy array for vectorized operations
         batch_outputs = np.array(batch_outputs) # Shape: (batch_size, nout)
 
-        # mean for all nodes in layer outputs, so, dim = 0
-        means = sum(batch_outputs) * len(batch_outputs)**-1
+        if self.training:
+            # mean for all nodes in layer outputs, so, dim = 0
+            means = sum(batch_outputs) * len(batch_outputs)**-1
 
-        vars = sum([(x + means*-1)**2 for x in batch_outputs]) * len(batch_outputs)**-1
+            vars = sum([(x + means*-1)**2 for x in batch_outputs]) * len(batch_outputs)**-1
 
-        normalized_outputs = (batch_outputs + means*-1) * (vars**(1/2) + 1e-10)**-1
+            normalized_outputs = (batch_outputs + means*-1) * (vars**(1/2) + 1e-10)**-1
 
-        layer.moving_mean = layer.momentum * layer.moving_mean + (1-layer.momentum) * np.array([mean.data for mean in means])
+            layer.moving_mean = layer.momentum * layer.moving_mean + (1-layer.momentum) * np.array([mean.data for mean in means])
 
-        layer.moving_var = layer.momentum * layer.moving_var + (1-layer.momentum) * np.array([var.data for var in vars])
+            layer.moving_var = layer.momentum * layer.moving_var + (1-layer.momentum) * np.array([var.data for var in vars])
+
+        else:
+            normalized_outputs = (batch_outputs + self.moving_mean*-1) * (self.moving_var**(1/2) + 1e-10)**-1
 
         # Store the normalized outputs for this layer
-        for i, output in enumerate(normalized_outputs):
-            self.layer_outs[layer_num][i] = layer.gamma*output + layer.beta
-
+            for i, output in enumerate(normalized_outputs):
+                self.layer_outs[layer_num][i] = layer.gamma*output + layer.beta
 
     def parameters(self):
         return np.array ([p for layer in self.layers for p in layer.parameters()])
@@ -128,7 +129,7 @@ class Embedding(Module):
         return f'Embedding(num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim})'
 
 class Linear(Module):
-    def __init__(self, nin, nout, activation='', name='', bn=False, training=True, **kwargs):
+    def __init__(self, nin, nout, activation='', name='', bn=False, **kwargs):
         self.neurons = [Neuron(nin, name=f'L{name}:n{i}',**kwargs) for i in range(nout)]
         self.activation = activation
         self.name = name
@@ -136,7 +137,6 @@ class Linear(Module):
         self.nout = nout
         self.dims = (nin, nout)
         self.bn = bn
-        self.training = training
         if self.bn:
             self.gamma = [Value(1, name=f'{i}:{name}:gamma') for i in range(nout)]
             self.beta = [Value(0, name=f'{i}:{name}:beta') for i in range(nout)]
