@@ -145,7 +145,10 @@ class Linear(Module):
         return out if len(out) > 1 else out[0]
 
     def parameters(self):
-        return np.array([p for neuron in self.neurons for p in neuron.parameters()])
+        params = [p for neuron in self.neurons for p in neuron.parameters()]
+        if self.bn:
+            params += self.gamma + self.beta
+        return np.array(params)
 
     def __repr__(self):
         return f'Linear(({self.nin}, {self.nout}) -> {self.activation})'
