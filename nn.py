@@ -82,11 +82,11 @@ class Model(Module):
         batch_outputs = np.array(batch_outputs) # Shape: (batch_size, nout)
 
         # mean for all nodes in layer outputs, so, dim = 0
-        means = sum(batch_outputs) / len(batch_outputs)
+        means = sum(batch_outputs) * len(batch_outputs)**-1
 
-        vars = sum([(x + means*-1)**2 for x in batch_outputs]) / len(batch_outputs)
+        vars = sum([(x + means*-1)**2 for x in batch_outputs]) * len(batch_outputs)**-1
 
-        normalized_outputs = (batch_outputs + means*-1) / (vars**(1/2) + 1e-10)
+        normalized_outputs = (batch_outputs + means*-1) * (vars**(1/2) + 1e-10)**-1
 
         # Store the normalized outputs for this layer
         for i, output in enumerate(normalized_outputs):
