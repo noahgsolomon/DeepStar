@@ -58,7 +58,7 @@ class Model(Module):
             for k, layer in enumerate(self.layers):
                 if isinstance(layer, Linear) and layer.bn:
                     if i == 0:  # Only compute the batch normalization once for the entire batch
-                        self.forward_batch(ix, k)
+                        self.forward_batch(ix, k, layer)
                     x = self.layer_outs[k][i]  # Retrieve the normalized output for the current input
                 else:
                     x = layer(x)  # Apply the layer to the current input
@@ -66,7 +66,7 @@ class Model(Module):
 
         return res[0] if len(res) == 1 else res
 
-    def forward_batch(self, batch_inputs, layer_num):
+    def forward_batch(self, batch_inputs, layer_num, layer):
         batch_outputs = []
         for i, x in enumerate(batch_inputs):
             for layer in self.layers[: (layer_num+1)]:
@@ -84,19 +84,13 @@ class Model(Module):
         # mean for all nodes in layer outputs, so, dim = 0
         means = sum(batch_outputs) / len(batch_outputs)
 
-        # Compute the mean of the squares of the batch_outputs
-        mean_of_squares = sum(x**2 for x in batch_outputs) / len(batch_outputs)
-
-        # Compute the variance
-        vars = mean_of_squares + (means**2)*-1
+        vars = sum([(x + means*-1)**2 for x in batch_outputs]) / len(batch_outputs)
 
         normalized_outputs = (batch_outputs + means*-1) / (vars**(1/2) + 1e-10)
 
         # Store the normalized outputs for this layer
         for i, output in enumerate(normalized_outputs):
-            self.layer_outs[layer_num][i] = output
-
-        print(self.layer_outs)
+            self.layer_outs[layer_num][i] = layer.gamma*output + layer.beta
 
 
     def parameters(self):
@@ -138,6 +132,9 @@ class Linear(Module):
         self.nout = nout
         self.dims = (nin, nout)
         self.bn = bn
+        if self.bn:
+            self.gamma = [Value(1, name=f'{i}:{name}:gamma') for i in range(nout)]
+            self.beta = [Value(0, name=f'{i}:{name}:beta') for i in range(nout)]
 
     def update_neuron_names(self):
         for i, neuron in enumerate(self.neurons):
