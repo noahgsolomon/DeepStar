@@ -92,11 +92,11 @@ class Model(Module):
             layer.moving_var = layer.momentum * layer.moving_var + (1-layer.momentum) * np.array([var.data for var in vars])
 
         else:
-            normalized_outputs = (batch_outputs + self.moving_mean*-1) * (self.moving_var**(1/2) + 1e-10)**-1
+            normalized_outputs = (batch_outputs + layer.moving_mean*-1) * (layer.moving_var**(1/2) + 1e-10)**-1
 
         # Store the normalized outputs for this layer
-            for i, output in enumerate(normalized_outputs):
-                self.layer_outs[layer_num][i] = layer.gamma*output + layer.beta
+        for i, output in enumerate(normalized_outputs):
+            self.layer_outs[layer_num][i] = layer.gamma*output + layer.beta
 
     def parameters(self):
         return np.array ([p for layer in self.layers for p in layer.parameters()])
